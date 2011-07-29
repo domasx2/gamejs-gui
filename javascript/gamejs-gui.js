@@ -1330,6 +1330,11 @@ GUI.prototype.despatchEvent=function(event){
                 //mouseout window if mouse is on a frame
                 if(frame.focus)topframe=i;
                 break;
+            }else{
+                //blur frame if focused but clicked somewhere else
+                if((event.type==EVT_MOUSE_DOWN) && (frame.focus)){
+                    frame.despatchEvent({'type':EVT_BLUR});
+                }
             }
         }
         
