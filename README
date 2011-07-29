@@ -1,12 +1,6 @@
-TODO, important:
-Text input
-Scrollable area
-Multi-line text
-figure out a way to implement easy skinning!!
+This is a canvas-native (not html & css) hierarchical event driven GUI toolkit for gamejs HTML 5 game framework.
 
-CAN WAIT:
-scrollbars
-checkbox
-draggables
-table?
-
+Goals:
+Fast and easy developement of sophisticated GUI for HTML5 games
+Ready-made game oriented components (inventory, health bar, store)
+A few ready-made GUI skins
