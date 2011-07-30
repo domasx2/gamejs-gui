@@ -17,6 +17,8 @@ var EVT_SCROLL = exports.EVT_SCROLL = 'scroll';
 var EVT_DRAG = exports.EVT_DRAG = 'drag';
 var DEFAULT_FONT_DESCR='14px Verdana';
 var gamejs_ui_next_id=1;
+
+
 /**********************************************
  *cloneEvent
  *
@@ -42,17 +44,17 @@ function getCenterPos(size1, size2){
             Math.max(parseInt((size1[1]-size2[1])/2), 0)];
 }
 
-//make a window draggable
-var draggable=exports.draggable=function(window){
-    window.grab_pos=null;
-    window.on(EVT_MOUSE_DOWN, function(event){
+//make a view draggable
+var draggable=exports.draggable=function(view){
+    view.grab_pos=null;
+    view.on(EVT_MOUSE_DOWN, function(event){
         this.grab_pos=event.global_pos;
-    }, window);
-    window.getGUI().on(EVT_MOUSE_UP, function(event){
+    }, view);
+    view.getGUI().on(EVT_MOUSE_UP, function(event){
         this.grab_pos=null;
-    }, window);
+    }, view);
     
-    window.getGUI().on(EVT_MOUSE_MOTION, function(event){
+    view.getGUI().on(EVT_MOUSE_MOTION, function(event){
         if(this.grab_pos){
             var old_position=this.position;
 
@@ -66,7 +68,7 @@ var draggable=exports.draggable=function(window){
                                 'old_pos':old_position,
                                 'new_pos':this.position});
         }
-    }, window);
+    }, view);
 };
 
 /*****************************************************
@@ -125,12 +127,13 @@ CachedFont.prototype.getTextSize=function(text){
     }else return [0, 0];
 };
 
-CachedFont.prototype.render=function(surface, text, position){
+CachedFont.prototype.render=function(surface, text, position, space_width){
     ofst=position[0];
+    var space_width=space_width? space_width : this.space_width;
     var i, c, s;
     for(i=0;i<text.length;i++){
         c=text[i];
-        if(c==' ')ofst+=this.space_width;
+        if(c==' ')ofst+=space_width;
         else if(c=='\t')ofst+=this.tab_width;
         else{
             s=this.getCharSurface(c);
@@ -146,23 +149,23 @@ CachedFont.prototype.render=function(surface, text, position){
 exports.DEFAULT_FONT=new CachedFont('12px Verdana', 'black');
 
 /******************************************************
- *WINDOW
+ *view
  *
- *contains other windows, handles and despatches events
+ *contains other views, handles and despatches events
  *pars:
  *
- *parent - parent window
+ *parent - parent view
  *size  [x, y]
  *position [x, y]
  *surface - if provided, this surface is used instead of creating a new one
  *visible
  */
-var Window=exports.Window=function(pars){
-    this.type='window';
+var View=exports.View=function(pars){
+    this.type='view';
     this.id=gamejs_ui_next_id++;
-    if(!pars.size) throw "Window: size must be specified"
+    if(!pars.size) throw "View: size must be specified"
     this.size=pars.size;
-    if(!pars.position) throw "Window: position must be specified"
+    if(!pars.position) throw "View: position must be specified"
     this.position=pars.position;
     this.surface=pars.surface ? pars.surface : new gamejs.Surface(this.size);
     this.parent=pars.parent;
@@ -175,13 +178,13 @@ var Window=exports.Window=function(pars){
     
     this.children=[];
 
-    //redraw window on next update?
+    //redraw view on next update?
     this.refresh();
     
-    //is the mouse over this window?
+    //is the mouse over this view?
     this.hover=false;
     
-    //is this window focused?
+    //is this view focused?
     this.focus=false;
     
     //evenet type: [{'callback':x, 'scope':y, ...]
@@ -193,9 +196,9 @@ var Window=exports.Window=function(pars){
 /**
  *remove child. this effectively destroys the child and its children
  *
- *child - Window object or window id
+ *child - View object or view id
  */
-Window.prototype.removeChild=function(child){
+View.prototype.removeChild=function(child){
     if(typeof(child)!='number')child=child.id;
     for(var i=0;i<this.children.length;i++){
         if(this.children[i].id==child){
@@ -210,23 +213,23 @@ Window.prototype.removeChild=function(child){
 /**
  *calls parent's removeChild
  */
-Window.prototype.destroy=function(){
+View.prototype.destroy=function(){
     if(this.parent)this.parent.removeChild(this);
 }
 
-Window.prototype.getRect=function(){
+View.prototype.getRect=function(){
     return new gamejs.Rect(this.position, this.size);  
 };
 
-//child windows
+//child views
 
 
-Window.prototype.addChild=function(child){
+View.prototype.addChild=function(child){
     this.children.push(child);
 }
 
-//redraw this window
-Window.prototype.draw=function(){
+//redraw this view
+View.prototype.draw=function(){
     if(!this.visible){
         if(this._refresh){
             this._refresh=false;
@@ -235,11 +238,11 @@ Window.prototype.draw=function(){
         return false;
     }
     
-    var painted=false; //has something been repainted in this window?
-    //does this window need repainting?
+    var painted=false; //has something been repainted in this view?
+    //does this view need repainting?
   
     this.children.forEach(function(child){
-        //draw children if this window has been repainted or child has been repainted
+        //draw children if this view has been repainted or child has been repainted
         if(child.draw() || this._refresh){
             painted=true;
         }
@@ -257,62 +260,62 @@ Window.prototype.draw=function(){
     return painted;
 };
 
-Window.prototype.blitChild=function(child){
+View.prototype.blitChild=function(child){
     this.surface.blit(child.surface, child.position);
 };
 
 //actual draw code, override
-Window.prototype.paint=function(){}
+View.prototype.paint=function(){}
 
-Window.prototype.update=function(msDuration){};
+View.prototype.update=function(msDuration){};
 
-//update window state
-Window.prototype._update=function(msDuration){
+//update view state
+View.prototype._update=function(msDuration){
     this.children.forEach(function(child){
         child._update(msDuration);        
     });
     this.update(msDuration);
 };
 
-Window.prototype.on=function(event_type, callback, scope){
+View.prototype.on=function(event_type, callback, scope){
     if(!this.listeners[event_type])this.listeners[event_type]=[];
     this.listeners[event_type].push({'callback':callback, 'scope':scope});
 };
 
-Window.prototype.despatchEventToChildren= function(event){
+View.prototype.despatchEventToChildren= function(event){
     this.children.forEach(function(child){child.despatchEvent(event);});
 };
 
 /**
- *move window to new position
+ *move view to new position
  */
-Window.prototype.move=function(position){
+View.prototype.move=function(position){
     this.position=position;
     this.parent.refresh();
 };
 
 /**
- *resize window
+ *resize view
  */
-Window.prototype.resize=function(size){
+View.prototype.resize=function(size){
     this.size=size;
     this.surface=new gamejs.Surface([Math.max(size[0], 1), Math.max(size[1], 1)]);
     this.refresh();
     if(this.parent)this.parent.refresh();
 };
 
-Window.prototype.refresh=function(){
+View.prototype.refresh=function(){
     this._refresh=true;
 };
 
-Window.prototype.show=function(){
+View.prototype.show=function(){
     if(!this.visible){
         this.visible=true;
         this.refresh();
     }
 };
 
-Window.prototype.hide=function(){
+View.prototype.hide=function(){
     if(this.visible){
         this.visible=false;
         this.refresh();
@@ -320,9 +323,9 @@ Window.prototype.hide=function(){
 };
 
 //despatch events to children, handle them if needed
-Window.prototype.despatchEvent=function(event){
+View.prototype.despatchEvent=function(event){
     if(!this.visible) return;
-    var inside=false; //event position inside this window
+    var inside=false; //event position inside this view
     
     if(event.type==EVT_BLUR){
         if(this.focus){
@@ -376,7 +379,7 @@ Window.prototype.despatchEvent=function(event){
     
     else if(event.type==EVT_MOUSE_MOTION){
         
-        //mouse moved onto this window - hover
+        //mouse moved onto this view - hover
         this.children.forEach(function(child){
             //click inside child: despatch
             if(child.getRect().collidePoint(event.pos)){
@@ -405,7 +408,7 @@ Window.prototype.despatchEvent=function(event){
 
 };
 
-Window.prototype.getGUI=function(){
+View.prototype.getGUI=function(){
     var parent=this.parent;
     while(parent!=null && parent.type!='gui'){
         parent=parent.parent;
@@ -413,13 +416,13 @@ Window.prototype.getGUI=function(){
     return parent;
 };
 
-//center a child in this window
-Window.prototype.center=function(child){
+//center a child in this view
+View.prototype.center=function(child){
     child.move(getCenterPos(this.size, child.size));   
 };
 
 //CAN ONLY BE CALLED BY DESPATCH EVENT!
-Window.prototype.handleEvent=function(event){
+View.prototype.handleEvent=function(event){
     if(this.listeners[event.type]){
         this.listeners[event.type].forEach(function(listener){
             if(listener.scope) listener.callback.apply(listener.scope, [event, this]);
@@ -448,7 +451,7 @@ var Label=exports.Label=function(pars){
     this.type='label'; 
 };
 
-gamejs.utils.objects.extend(Label, Window);
+gamejs.utils.objects.extend(Label, View);
 
 Label.prototype.getFont=function(){
     return this.font ? this.font : exports.DEFAULT_FONT;
@@ -521,7 +524,7 @@ var Button=exports.Button=function(pars){
     }, this)
 };
 
-gamejs.utils.objects.extend(Button, Window);
+gamejs.utils.objects.extend(Button, View);
 
 Button.prototype.onClick=function(callback, scope){
     this.on(EVT_BTN_CLICK, callback, scope);
@@ -563,7 +566,7 @@ var Image=exports.Image=function(pars){
     return this;
 };
 
-gamejs.utils.objects.extend(Image, Window);
+gamejs.utils.objects.extend(Image, View);
 
 Image.prototype.setImage=function(image){
     this.image=image;
@@ -578,7 +581,7 @@ Image.prototype.setImage=function(image){
 }
 
 Image.prototype.resize=function(size){
-    Window.prototype.resize.apply(this, [size]);
+    View.prototype.resize.apply(this, [size]);
     if((size[0]!=this.image.getSize()[0]) || (size[1]!=this.image.getSize()[1])){
         this.surface.blit(this.image, new gamejs.Rect([0, 0], size), new gamejs.Rect([0, 0], this.image.getSize()));
     }
@@ -637,7 +640,7 @@ var FrameHeader=exports.FrameHeader=function(pars){
     this.type='frameheader';       
 };
 
-gamejs.utils.objects.extend(FrameHeader, Window);
+gamejs.utils.objects.extend(FrameHeader, View);
 
 FrameHeader.prototype.move=function(pos){
     this.parent.move([this.parent.position[0]+pos[0]-this.position[0],
@@ -663,7 +666,7 @@ FrameHeader.prototype.paint=function(){
 
 /**************************************************************
  *FRAME
- *Root window, handles gamejs events and despatches them to children
+ *Root view, handles gamejs events and despatches them to children
  *
  *pars:
  *gui
@@ -697,12 +700,12 @@ var Frame=exports.Frame=function(pars){
     this.constrain=pars.constrain;
     return this;
 };
-gamejs.utils.objects.extend(Frame, Window);
+gamejs.utils.objects.extend(Frame, View);
 
 Frame.prototype.header_class=FrameHeader;
 
 Frame.prototype.refresh=function(){
-    Window.prototype.refresh.apply(this, []);
+    View.prototype.refresh.apply(this, []);
 };
 
 Frame.prototype.paint=function(){
@@ -736,7 +739,7 @@ Frame.prototype.move=function(position){
         if(position[1]<0)position[1]=0;
         if(position[1]>this.parent.size[1]-this.size[1]) position[1]=this.parent.size[1]-this.size[1];
     }
-    Window.prototype.move.apply(this, [position]);
+    View.prototype.move.apply(this, [position]);
 };
 
 /**
@@ -745,10 +748,10 @@ Frame.prototype.move=function(position){
 Frame.prototype.destroy=function(){
     if(this.visible) this.close();
     if(this.parent) this.parent.removeFrame(this);
-}
+};
 
 /**********************
- *DraggableWindow
+ *DraggableView
  *
  *pars:
  *parent
@@ -761,19 +764,19 @@ Frame.prototype.destroy=function(){
  *max_y
  */
 
-var DraggableWindow=exports.DraggableWindow=function(pars){
-    DraggableWindow.superConstructor.apply(this, [pars]);
+var DraggableView=exports.DraggableView=function(pars){
+    DraggableView.superConstructor.apply(this, [pars]);
     draggable(this);
     this.min_x=pars.min_x;
     this.max_x=pars.max_x;
     this.min_y=pars.min_y;
     this.max_y=pars.max_y;
-    this.type='draggablewindow';
+    this.type='draggableview';
 };
 
-gamejs.utils.objects.extend(DraggableWindow, Window);
+gamejs.utils.objects.extend(DraggableView, View);
 
-DraggableWindow.prototype.move=function(pos){
+DraggableView.prototype.move=function(pos){
     var x=pos[0];
     if(this.min_x || (this.min_x==0)) x=Math.max(x, this.min_x);
     if(this.max_x || (this.max_x==0)) x=Math.min(x, this.max_x);
@@ -782,7 +785,7 @@ DraggableWindow.prototype.move=function(pos){
     if(this.min_y || (this.min_y==0)) y=Math.max(y, this.min_y);
     if(this.max_y || (this.max_y==0)) y=Math.min(y, this.max_y);
     
-    Window.prototype.move.apply(this, [[x, y]]);
+    View.prototype.move.apply(this, [[x, y]]);
 };
 
 
@@ -810,10 +813,10 @@ var Scroller=exports.Scroller=function(pars){
                     'image':pars.image});
     }
 };
-gamejs.utils.objects.extend(Scroller, DraggableWindow);
+gamejs.utils.objects.extend(Scroller, DraggableView);
 
 Scroller.prototype.resize=function(size){
-    DraggableWindow.prototype.resize.apply(this,[size]);
+    DraggableView.prototype.resize.apply(this,[size]);
     if(this.img)this.img.resize(size);
 
 };
@@ -888,7 +891,7 @@ var VerticalScrollbar=exports.VerticalScrollbar=function(pars){
         this.setScrollPX(event.new_pos[1]-this.size[0]);
     }, this);
 };
-gamejs.utils.objects.extend(VerticalScrollbar, Window);
+gamejs.utils.objects.extend(VerticalScrollbar, View);
 
 VerticalScrollbar.prototype.scroller_class=Scroller;
 
@@ -924,7 +927,7 @@ VerticalScrollbar.prototype.setScroll=function(pos){
 
 /*
 VerticalScrollbar.prototype.refresh=function(){
-    Window.prototype.refresh.apply(this, []);
+    View.prototype.refresh.apply(this, []);
     this.parent.refresh();
 };*/
 
@@ -941,7 +944,7 @@ VerticalScrollbar.prototype.paint=function(){
 
 
 /****************************************
- *ScrollableWindow
+ *ScrollableView
  *
  *scroll contents.
  *
@@ -950,9 +953,9 @@ VerticalScrollbar.prototype.paint=function(){
  *position
  *size
  */
-var ScrollableWindow=exports.ScrollableWindow=function(pars){
-    ScrollableWindow.superConstructor.apply(this, [pars]);
-    this.type='scrollablewindow';
+var ScrollableView=exports.ScrollableView=function(pars){
+    ScrollableView.superConstructor.apply(this, [pars]);
+    this.type='scrollableview';
     this.scroll_x=0;
     this.scroll_y=0;
     this.max_scroll_x=0;
@@ -961,16 +964,16 @@ var ScrollableWindow=exports.ScrollableWindow=function(pars){
     this.setScrollableArea(this.size);
     this.vertical_scrollbar=null;
 };
-gamejs.utils.objects.extend(ScrollableWindow, Window);
+gamejs.utils.objects.extend(ScrollableView, View);
 
-ScrollableWindow.prototype.setVerticalScrollbar=function(scrollbar){
+ScrollableView.prototype.setVerticalScrollbar=function(scrollbar){
     this.vertical_scrollbar=scrollbar;
     scrollbar.on(EVT_SCROLL, function(event){
         this.setScrollY(Math.ceil(event.scroll*this.max_scroll_y));
     }, this);
 };
 
-ScrollableWindow.prototype.setScrollableArea=function(area){
+ScrollableView.prototype.setScrollableArea=function(area){
     this.scrollable_area=area;
     this.max_scroll_y=Math.max(area[1]-this.size[1], 0);
     this.max_scroll_x=Math.max(area[0]-this.size[0], 0);
@@ -980,7 +983,7 @@ ScrollableWindow.prototype.setScrollableArea=function(area){
     }
 };
 
-ScrollableWindow.prototype.autoSetScrollableArea=function(){
+ScrollableView.prototype.autoSetScrollableArea=function(){
     scrollable_area=[0, 0];
     this.children.forEach(function(child){
             scrollable_area[0]=Math.max(scrollable_area[0], child.position[0]+child.size[0]+20);
@@ -990,49 +993,49 @@ ScrollableWindow.prototype.autoSetScrollableArea=function(){
 };
 
 //implement autosetscrollablearea?
-ScrollableWindow.prototype.addChild=function(child){
-    Window.prototype.addChild.apply(this, [child]);
+ScrollableView.prototype.addChild=function(child){
+    View.prototype.addChild.apply(this, [child]);
     this.refresh();    
 };
 
 //alter blit pos to account for scroll
-ScrollableWindow.prototype.blitChild=function(child){
+ScrollableView.prototype.blitChild=function(child){
     this.surface.blit(child.surface, [child.position[0]-this.scroll_x, child.position[1]-this.scroll_y]);
 };
 
 //alter event pos to account for scroll
-ScrollableWindow.prototype.despatchEvent=function(event){
+ScrollableView.prototype.despatchEvent=function(event){
     if(event.pos){
         event=cloneEvent(event);
         event.pos=[event.pos[0]+this.scroll_x, event.pos[1]+this.scroll_y];
     }
-    Window.prototype.despatchEvent.apply(this, [event]);
+    View.prototype.despatchEvent.apply(this, [event]);
 };
 
-ScrollableWindow.prototype.paint=function(){
+ScrollableView.prototype.paint=function(){
     this.surface.clear();
 };
 
 //increment horizontal scroll
-ScrollableWindow.prototype.scrollX=function(x){
+ScrollableView.prototype.scrollX=function(x){
   this.setScrollX(this.scroll_x+x);
   this.refresh();
 };
 
 //increment vertical scroll
-ScrollableWindow.prototype.scrollY=function(y){
+ScrollableView.prototype.scrollY=function(y){
     this.setScrollY(this.scroll_y+y);
     this.refresh();
 };
 
 //set horizontal scroll
-ScrollableWindow.prototype.setScrollX=function(x){
+ScrollableView.prototype.setScrollX=function(x){
     this.scroll_x=Math.min(Math.max(x, 0), this.max_scroll_x);
     this.refresh();
 };
 
 //set vertical scroll
-ScrollableWindow.prototype.setScrollY=function(y){
+ScrollableView.prototype.setScrollY=function(y){
     this.scroll_y=Math.min(Math.max(y, 0), this.max_scroll_y);
     this.refresh();
 };
@@ -1057,7 +1060,7 @@ var TextInput=exports.TextInput=function(pars){
     this.pos=0;
     this.ms=500;
     
-    this.scw=new ScrollableWindow({'parent':this,
+    this.scw=new ScrollableView({'parent':this,
                               'position':[0, 0],
                               'size':this.size});
     this.label=new Label({'parent':this.scw,
@@ -1080,7 +1083,7 @@ var TextInput=exports.TextInput=function(pars){
     }, this);
     this.setPos(this.text.length);
 };
-gamejs.utils.objects.extend(TextInput, Window);
+gamejs.utils.objects.extend(TextInput, View);
 
 TextInput.prototype.blipon=function(event){
     this.blip=true;
@@ -1215,6 +1218,96 @@ Dialog.prototype.close=function(){
     Frame.prototype.close.apply(this, []);
 };
 
+/****
+ *Text
+ *
+ *wrapped multi-line text
+ *
+ *pars:
+ *position
+ *width
+ *font - CachedFont
+ *text
+ *justify {Bool} justify text? default aligned left
+ */
+var Text=exports.Text=function(pars){
+    pars.size=[pars.width, 1];
+    Text.superConstructor.apply(this, [pars]);
+    this.width=pars.width;
+    this.font=pars.font ? pars.font : exports.DEFAULT_FONT;
+    this.setText(pars.text);
+    this.justify=pars.justify;
+};
+gamejs.utils.objects.extend(Text, View);
+
+Text.prototype.setText=function(text){
+    //wow, is this a hacky mess! but i think it works
+    
+    this.text=text;
+    this.lines=[];
+    var nlines=text.split(/\r\n|\r|\n/);
+    nlines.push(' ');
+    var line, words;
+    var i, ci, c, l;
+    var word='';
+    var height=0;
+    var n_line_length=0;
+    var n_line='';
+    for(i=0;i<nlines.length;i++){
+        line=nlines[i];
+        line+=' ';
+        for(ci=0;ci<line.length;ci++){
+            c=line[ci];
+            if(c==' ' || c=='\t'){
+                if(word){
+                    l=this.font.getTextSize(word)[0];
+                    if((n_line_length+l>this.size[0]) && (!(n_line==''))){
+                        this.lines.push({'t':n_line, 'e':false});
+                        height+=this.font.getTextSize(n_line)[1];
+                        n_line='';
+                        n_line_length=0;
+                        if(word[0]==' ' || word[0]=='\t'){
+                            word=word.substr(1, word.length);
+                        }
+                    }
+                    n_line+=word;
+                    n_line_length+=l;
+                    
+                }
+                word='';
+                word+=c;
+            }else{
+                word+=c;
+            }
+        }
+        if(n_line){
+            this.lines.push({'t':n_line, 'e':true});
+            height+=this.font.getTextSize(n_line)[1];
+            n_line='';
+            n_line_length=0;
+        }
+    }
+    this.resize([this.width, height]);
+    this.refresh();
+};
+
+Text.prototype.paint=function(){
+    var pos=0;
+    this.lines.forEach(function(line){
+        var sz=this.font.getTextSize(line.t);
+        var extra_w=0;
+        if(this.justify && (!line.e)){
+            var space_count=0;
+            for(var i=0;i<line.t.length;i++){
+                if(line.t[i]==' ') space_count++;
+            }
+            extra_w=Math.floor((this.size[0]-sz[0])/space_count);
+        }
+        this.font.render(this.surface, line.t, [0, pos], this.font.space_width+extra_w);
+        pos+=sz[1];
+    }, this);
+}
+
 /**
  *GUI
  *
@@ -1228,11 +1321,11 @@ var GUI=exports.GUI=function(surface){
     this.frames=[];
 };
 
-gamejs.utils.objects.extend(GUI, Window);
+gamejs.utils.objects.extend(GUI, View);
 
 GUI.prototype.draw=function(force_redraw){
     if(force_redraw)this.refresh();
-    var painted=Window.prototype.draw.apply(this, []);
+    var painted=View.prototype.draw.apply(this, []);
     this.frames.forEach(function(frame){
         if(frame.visible && (frame.draw() || painted)){
             if(this.locked_frame && (this.locked_frame.id==frame.id)){
@@ -1327,7 +1420,7 @@ GUI.prototype.despatchEvent=function(event){
                     moused_on=i;
                 }
                 hit=true;
-                //mouseout window if mouse is on a frame
+                //mouseout view if mouse is on a frame
                 if(frame.focus)topframe=i;
                 break;
             }else{
@@ -1340,7 +1433,7 @@ GUI.prototype.despatchEvent=function(event){
         
         //blur everything else if clicked on a frame
         if(clicked_on!=null){
-            Window.prototype.despatchEvent.apply(this, [{'type':EVT_BLUR}]);
+            View.prototype.despatchEvent.apply(this, [{'type':EVT_BLUR}]);
             for(i=0;i<this.frames.length;i++){
                 if(i!=clicked_on) this.frames[i].despatchEvent({'type':EVT_BLUR});
             }
@@ -1348,17 +1441,17 @@ GUI.prototype.despatchEvent=function(event){
          
         //mouseout everyhting else if clicked on a frame
         if(moused_on!=null){
-            Window.prototype.despatchEvent.apply(this, [{'type':EVT_MOUSE_OUT}]);
+            View.prototype.despatchEvent.apply(this, [{'type':EVT_MOUSE_OUT}]);
             for(i=0;i<this.frames.length;i++){
                 if(i!=moused_on) this.frames[i].despatchEvent({'type':EVT_MOUSE_OUT});
             } 
         }
         
         if(!hit &&(!this.locked_frame)){
-            Window.prototype.despatchEvent.apply(this, [event]);
+            View.prototype.despatchEvent.apply(this, [event]);
         }
         else{
-            Window.prototype.handleEvent.apply(this, [event]);
+            View.prototype.handleEvent.apply(this, [event]);
         }
         
         if(topframe!=null){
@@ -1374,8 +1467,8 @@ GUI.prototype.despatchEvent=function(event){
             });  
         }
         
-        if(!this.locked_frame) Window.prototype.despatchEvent.apply(this, [event]);
-        else Window.prototype.handleEvent.apply(this, [event]);
+        if(!this.locked_frame) View.prototype.despatchEvent.apply(this, [event]);
+        else View.prototype.handleEvent.apply(this, [event]);
     }
 };
 

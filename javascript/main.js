@@ -3,6 +3,9 @@ var GUI=require('./gamejs-gui');
 
 gamejs.preload(['./images/bandit_blue.png']);
 
+
+var sometext=" Typography is often a deciding factor in the success of a design. Its importance cannot be overstated. Effective typography can be achieved in so many different ways, as demonstrated in the 17 different categories below.\nSome of the most common ways to treat type is with size, color variation, creative illustrations, and use of textures. The examples below are just the tip of the iceberg as far as the possibilities for type.\nDon't be afraid to flip it, color it, resize it, draw it, or even design your own.\nCheck out these fantastic 101 examples of beautiful text treatments and please let us know of any other great examples we may have missed.";
+
 gamejs.ready(function() {
 
     var display = gamejs.display.setMode([800, 600]);
@@ -18,7 +21,7 @@ gamejs.ready(function() {
                              'title':'Frame 1'});
 
     
-    var scrollable_area=new GUI.ScrollableWindow({'position':[0, 20],
+    var scrollable_area=new GUI.ScrollableView({'position':[0, 20],
                                                  'size':[frame1.size[0]-20,
                                                          frame1.size[1]-20],
                                                  'parent':frame1});
@@ -37,9 +40,13 @@ gamejs.ready(function() {
                       'size':[100, 20],
                       'text':'boo'});
     
-    new GUI.Image({'parent':scrollable_area,
-                    'position':[10, 300],
-                    'image':gamejs.image.load('./images/bandit_blue.png')});
+    new GUI.Text({'parent':scrollable_area,
+                  'position':[2, 230],
+                  'width':frame1.size[0]-20-2,
+                  'text':sometext,
+                  'justify':true});
+                  
+                  
     
     var scrollbar=new GUI.VerticalScrollbar({'parent':frame1,
                                             'size':[20, frame1.size[1]-20],
@@ -131,6 +138,11 @@ gamejs.ready(function() {
                                         'size':[100, 20],
                                         'text':'hai'});
     
+    var text=new GUI.Text({'position':[200, 100],
+                          'width':300,
+                          'parent':gui,
+                          'text':sometext});
+    
     function tick(msDuration) {
         var events=gamejs.event.get().forEach(function(event) {
             gui.despatchEvent(event);
@@ -139,6 +151,8 @@ gamejs.ready(function() {
         gui.update(msDuration);   
         gui.draw(true);
     };
+    
+    
     
     gamejs.time.fpsCallback(tick, this, 60);
     
