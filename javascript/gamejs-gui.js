@@ -476,6 +476,8 @@ Label.prototype.paint=function(){
  *position
  *size
  *image
+ *image_down optional
+ *image_hover optional
  *text
  *font - CachedFont instance
  */
@@ -485,19 +487,30 @@ var Button=exports.Button=function(pars){
     this.type='button';
     this.image=null;
     this.label=null;
-    if(pars.image){
-        var sz=pars.image.getSize();
-        var pos=getCenterPos(this.size, sz);
-        this.image=new Image({'image':pars.image,
-                              'parent':this,
-                              'position':pos});
+    this.image=pars.image;
+    this.image_down=pars.image_down;
+    this.image_hover=pars.image_hover;
+    
+    if(!this.image){
+        this.image=new gamejs.Surface(this.size);
+        this.image.fill('#FFF');
+        gamejs.draw.rect(this.image, '#808080', new gamejs.Rect([0, 0], this.size), 1);
     }
-    else if(pars.text){     
+    
+    if(!this.image_down){
+        this.image_down=new gamejs.Surface(this.size);
+        this.image_down.fill('#E0E0E0');
+        gamejs.draw.rect(this.image_down, '#808080', new gamejs.Rect([0, 0], this.size), 1);
+    }
+    
+    
+    
+    if(pars.text){     
         this.label=new Label({'parent':this,
                              'position':[0, 0],
                              'text':pars.text,
                              'font':pars.font});
-        this.label.move(getCenterPos(this.size, this.label.size));
+        this.center(this.label);
     }
     
     this.pressed_down=false;
@@ -531,10 +544,11 @@ Button.prototype.onClick=function(callback, scope){
 };
 
 Button.prototype.paint=function(){
-    if(!this.image){
-        gamejs.draw.rect(this.surface, this.pressed_down ? '#D3D3D3' : '#FFF', new gamejs.Rect([0, 0], this.size));
-        gamejs.draw.rect(this.surface, '#808080', new gamejs.Rect([0, 0], this.size), 1);
-    }
+    var img;
+    if(this.pressed_down && this.image_down) img=this.image_down;
+    else if(this.hover && this.image_hover) img=this.image_hover;
+    else img=this.image;
+    this.surface.blit(img, new gamejs.Rect([0, 0], this.surface.getSize()), new gamejs.Rect([0, 0], img.getSize()));
     
 };
 
@@ -549,18 +563,8 @@ Button.prototype.paint=function(){
 
 var Image=exports.Image=function(pars){
     if(!pars.image) throw 'Image: parameter image is required';
-    size=pars.size;
-    if(!size) size=pars.image.getSize();
-    this.size=pars.size=size;
+    if(!pars.size) pars.size=pars.image.getSize();
     this.image=pars.image;
-    if(size[0]!=this.image.getSize()[0] || size[1]!=this.image.getSize()[1]){
-        this.surface=new gamejs.Surface(size);
-        this.surface.blit(this.image, new gamejs.Rect([0, 0], size), new gamejs.Rect([0, 0], this.image.getSize()));
-    }
-    else{
-        this.surface=this.image;
-    }
-    pars.surface=this.surface;
     Image.superConstructor.apply(this, [pars]);
     this.type='image';
     return this;
@@ -578,7 +582,7 @@ Image.prototype.setImage=function(image){
         this.surface=this.image;
     }
     this.refresh();
-}
+};
 
 Image.prototype.resize=function(size){
     View.prototype.resize.apply(this, [size]);
@@ -588,7 +592,11 @@ Image.prototype.resize=function(size){
     else{
         this.surface=this.image;
     }
-}
+};
+
+Image.prototype.paint=function(){
+    this.surface.blit(this.image, new gamejs.Rect([0, 0], this.surface.getSize()), new gamejs.Rect([0, 0], this.image.getSize()));  
+};
 
 
 
