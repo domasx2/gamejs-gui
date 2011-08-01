@@ -15,6 +15,9 @@ var EVT_BTN_CLICK = exports.EVT_BTN_CLICK = 'btn_click';
 var EVT_CLOSE = exports.EVT_CLOSE = 'close';
 var EVT_SCROLL = exports.EVT_SCROLL = 'scroll';
 var EVT_DRAG = exports.EVT_DRAG = 'drag';
+var EVT_MOVE = exports.EVT_MOVE = 'move';
+var EVT_RESIZE = exports.EVT_RESIZE = 'resize';
+var EVT_PAINT = exports.EVT_PAINT = 'paint';
 var DEFAULT_FONT_DESCR='14px Verdana';
 var gamejs_ui_next_id=1;
 
@@ -250,6 +253,7 @@ View.prototype.draw=function(){
     
     if(this._refresh || painted){
         this.paint();
+        this.despatchEvent({'type':EVT_PAINT, 'surface':this.surface});
         this.children.forEach(function(child){
             if(child.visible) this.blitChild(child);
         }, this)
@@ -290,18 +294,25 @@ View.prototype.despatchEventToChildren= function(event){
  *move view to new position
  */
 View.prototype.move=function(position){
+    var old_position=this.position;
     this.position=position;
     this.parent.refresh();
+    this.despatchEvent({'type':EVT_MOVE,
+                       'old_pos':old_position,
+                       'new_pos':position});
 };
 
 /**
  *resize view
  */
 View.prototype.resize=function(size){
+    var old_size=this.size;
     this.size=size;
     this.surface=new gamejs.Surface([Math.max(size[0], 1), Math.max(size[1], 1)]);
     this.refresh();
-    if(this.parent)this.parent.refresh();
+    this.despatchEvent({'type':EVT_RESIZE,
+                       'old_size':old_size,
+                       'new_size':size});
 };
 
 View.prototype.refresh=function(){
@@ -497,7 +508,7 @@ var Button=exports.Button=function(pars){
         gamejs.draw.rect(this.image, '#808080', new gamejs.Rect([0, 0], this.size), 1);
     }
     
-    if(!this.image_down){
+    if(this.image_down==undefined){
         this.image_down=new gamejs.Surface(this.size);
         this.image_down.fill('#E0E0E0');
         gamejs.draw.rect(this.image_down, '#808080', new gamejs.Rect([0, 0], this.size), 1);
