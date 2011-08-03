@@ -18,6 +18,7 @@ var EVT_DRAG = exports.EVT_DRAG = 'drag';
 var EVT_MOVE = exports.EVT_MOVE = 'move';
 var EVT_RESIZE = exports.EVT_RESIZE = 'resize';
 var EVT_PAINT = exports.EVT_PAINT = 'paint';
+var EVT_CHANGE = exports.EVT_CHANGE = 'change'; //input change for input elements
 var DEFAULT_FONT_DESCR='14px Verdana';
 var gamejs_ui_next_id=1;
 
@@ -180,9 +181,7 @@ var View=exports.View=function(pars){
     if(this.parent) this.parent.addChild(this);
     
     this.children=[];
-
-    //redraw view on next update?
-    this.refresh();
+    this._refresh=true;
     
     //is the mouse over this view?
     this.hover=false;
@@ -269,7 +268,9 @@ View.prototype.blitChild=function(child){
 };
 
 //actual draw code, override
-View.prototype.paint=function(){}
+View.prototype.paint=function(){
+    this.surface.clear();
+};
 
 View.prototype.update=function(msDuration){};
 
@@ -303,6 +304,13 @@ View.prototype.move=function(position){
 };
 
 /**
+ *move view, relative coordinates
+ */
+View.prototype.moveRelative=function(position){
+    this.move([this.position[0]+position[0], this.position[1]+position[1]]);  
+};  
+
+/**
  *resize view
  */
 View.prototype.resize=function(size){
@@ -328,6 +336,8 @@ View.prototype.show=function(){
 
 View.prototype.hide=function(){
     if(this.visible){
+        this.despatchEvent({'type':EVT_BLUR});
+        this.despatchEvent({'type':EVT_MOUSE_OUT});
         this.visible=false;
         this.refresh();
     }
@@ -341,6 +351,7 @@ View.prototype.despatchEvent=function(event){
     if(event.type==EVT_BLUR){
         if(this.focus){
             this.focus=false;
+            this.refresh();
             this.handleEvent(event);
         }
         this.despatchEventToChildren(event);
@@ -348,17 +359,20 @@ View.prototype.despatchEvent=function(event){
     else if(event.type==EVT_MOUSE_OUT){
         if(this.hover){
             this.hover=false;
+            this.refresh();
             this.handleEvent(event);
         }
         this.despatchEventToChildren(event);
     }
     else if(event.type==EVT_MOUSE_OVER){
         this.hover=true;
+        this.refresh();
         this.handleEvent(event);
     }
     
     else if(event.type==EVT_FOCUS){
         this.focus=true;
+        this.refresh();
         this.handleEvent(event);
     }
     
@@ -606,6 +620,7 @@ Image.prototype.resize=function(size){
 };
 
 Image.prototype.paint=function(){
+    View.prototype.paint.apply(this, []);
     this.surface.blit(this.image, new gamejs.Rect([0, 0], this.surface.getSize()), new gamejs.Rect([0, 0], this.image.getSize()));  
 };
 
@@ -740,15 +755,13 @@ Frame.prototype.setTitle=function(text){
 }
 
 Frame.prototype.show=function(){
-    this.visible=true;
-    this.refresh();
-    this.parent.refresh();
+    View.prototype.show.apply(this, []);
     this.parent.moveFrameToTop(this);
 };
 
 Frame.prototype.close=function(){
-    this.visible=false;
-    this.parent.refresh();
+    View.prototype.hide.apply(this, []);
+    this.despatchEvent({'type':EVT_CLOSE});
 };
 
 Frame.prototype.move=function(position){
@@ -838,6 +851,130 @@ Scroller.prototype.resize=function(size){
     DraggableView.prototype.resize.apply(this,[size]);
     if(this.img)this.img.resize(size);
 
+};
+
+/***************************
+ *Horizontal Scrollbar
+ *pars:
+ *parent
+ *size
+ *position
+ *left_btn_image {gamejs.Surface}
+ *scroller_image {gamejs.Surface}
+ *right_btn_image {gamejs.Surface}
+ */
+
+var getLevelTemplate=function(){
+    return {'bgtile':'sand.png',
+            'decals':[],
+            'props':[],
+            'ai_waypoints':[],
+            'checkpoints':[],
+            'start_positions':[]};
+};
+
+var HorizontalScrollbar=exports.HorizontalScrollbar=function(pars){
+    HorizontalScrollbar.superConstructor.apply(this, [pars]);
+    this.type='horizontalscrollbar';
+    var left_btn_image=pars.left_btn_image;
+    if(!left_btn_image){
+        left_btn_image=new gamejs.Surface([this.size[1], this.size[1]]);
+        var pts=[[0, this.size[1]/2],
+                 [this.size[1], 0],
+                 [this.size[1], this.size[1]]];
+        gamejs.draw.polygon(left_btn_image, '#C0C0C0', pts);
+    }
+    this.left_btn=new Button({'parent':this,
+                            'position':[0, 0],
+                            'size':[this.size[1], this.size[1]],
+                            'image':left_btn_image});
+    this.left_btn.onClick(this.scrollLeft, this);
+    
+    var right_btn_image=pars.right_btn_image;
+    if(!right_btn_image){
+        right_btn_image=new gamejs.Surface([this.size[1], this.size[1]]);
+        var pts=[[0, 0],
+                 [this.size[1], this.size[1]/2],
+                 [0, this.size[1]]];
+        gamejs.draw.polygon(right_btn_image, '#C0C0C0', pts);
+    }
+    this.right_btn=new Button({'parent':this,
+                            'position':[this.size[0]-this.size[1], 0],
+                            'size':[this.size[1], this.size[1]],
+                            'image':right_btn_image});
+    
+    this.right_btn.onClick(this.scrollRight, this);
+
+    //scroller track size
+    this.sts=this.size[0]-this.right_btn.size[0]-this.left_btn.size[0];
+    
+    var scroller_image=pars.scroller_image;
+    if(!scroller_image){
+        scroller_image=new gamejs.Surface([this.size[1], this.size[1]]);
+        var sz=scroller_image.getSize()
+        gamejs.draw.rect(scroller_image, '#C0C0C0', new gamejs.Rect([0, 0],[sz[0], sz[1]]));
+    }
+    var size=[Math.max(parseInt((this.size[0]-2*this.size[1])/2),scroller_image.getSize()[0]), this.size[1]];
+    this.scroller=new this.scroller_class({'parent':this,
+                                            'position':[this.size[1], 0],
+                                            'image':scroller_image,
+                                            'size':size,
+                                            'min_x':this.size[1],
+                                            'max_x':this.size[0]-this.right_btn.size[0]-size[0],
+                                            'min_y':0,
+                                            'max_y':0});
+
+    
+    this.scroll_pos=0;
+    this.max_scroll_pos=this.sts-this.scroller.size[0];
+    
+    this.scroller.on(EVT_DRAG, function(event){
+        this.setScrollPX(event.new_pos[0]-this.size[1]);
+    }, this);
+};
+gamejs.utils.objects.extend(HorizontalScrollbar, View);
+
+HorizontalScrollbar.prototype.scroller_class=Scroller;
+
+//sz between 0.1 and 1
+HorizontalScrollbar.prototype.setScrollerSize=function(sz){
+    sz=Math.min(Math.max(sz, 0.1), 1);
+    this.scroller.resize([this.sts*sz, this.scroller.size[1]]);
+   
+    this.max_scroll_pos=this.sts-this.scroller.size[0];
+    this.scroller.max_x=this.size[0]-this.left_btn.size[0]-this.scroller.size[0];
+    this.refresh();
+};
+
+//pos - px
+HorizontalScrollbar.prototype.setScrollPX=function(pos){
+    this.scroller.move([pos+this.left_btn.size[0], 0]);
+    var pos_x=this.scroller.position[0]-this.left_btn.size[0];
+    this.scroll_pos=pos_x;
+    var scroll=0;
+    if(this.max_scroll_pos>0){
+        scroll=pos_x/this.max_scroll_pos;
+    }
+    this.despatchEvent({'type':EVT_SCROLL,
+                       'scroll_px':pos_x,
+                       'scroll':scroll});
+    this.refresh();
+};
+
+//pos betwween 0 and 1
+HorizontalScrollbar.prototype.setScroll=function(pos){
+    this.setScrollPX(parseInt(this.max_scroll_pos*pos));
+};
+
+HorizontalScrollbar.prototype.scrollLeft=function(){
+    this.setScrollPX(Math.max(0, this.scroll_pos-this.max_scroll_pos*0.1));
+};
+
+HorizontalScrollbar.prototype.scrollRight=function(){
+    this.setScrollPX(Math.min(this.max_scroll_pos, this.scroll_pos+this.max_scroll_pos*0.1));
+};
+HorizontalScrollbar.prototype.paint=function(){
+    this.surface.clear();
 };
 
 /****************************
@@ -982,6 +1119,7 @@ var ScrollableView=exports.ScrollableView=function(pars){
     this.scrollable_area=[0, 0];
     this.setScrollableArea(this.size);
     this.vertical_scrollbar=null;
+    this.horizontal_scrollbar=null;
 };
 gamejs.utils.objects.extend(ScrollableView, View);
 
@@ -992,6 +1130,13 @@ ScrollableView.prototype.setVerticalScrollbar=function(scrollbar){
     }, this);
 };
 
+ScrollableView.prototype.setHorizontalScrollbar=function(scrollbar){
+    this.horizontal_scrollbar=scrollbar;
+    scrollbar.on(EVT_SCROLL, function(event){
+        this.setScrollX(Math.ceil(event.scroll*this.max_scroll_x));
+    }, this);
+};
+
 ScrollableView.prototype.setScrollableArea=function(area){
     this.scrollable_area=area;
     this.max_scroll_y=Math.max(area[1]-this.size[1], 0);
@@ -999,6 +1144,10 @@ ScrollableView.prototype.setScrollableArea=function(area){
     if(this.vertical_scrollbar){
         var sz=Math.max(Math.min(1, this.size[1]/area[1]), 0.1);
         this.vertical_scrollbar.setScrollerSize(sz);
+    }
+    if(this.horizontal_scrollbar){
+        var sz=Math.max(Math.min(1, this.size[0]/area[0]), 0.1);
+        this.horizontal_scrollbar.setScrollerSize(sz);
     }
 };
 
@@ -1070,6 +1219,7 @@ ScrollableView.prototype.setScrollY=function(y){
  *position
  *font -CachedFont
  *text
+ *scw_size - inner text box size
  */
 var TextInput=exports.TextInput=function(pars){
     TextInput.superConstructor.apply(this, [pars]);
@@ -1081,7 +1231,8 @@ var TextInput=exports.TextInput=function(pars){
     
     this.scw=new ScrollableView({'parent':this,
                               'position':[0, 0],
-                              'size':this.size});
+                              'size':pars.scw_size || this.size});
+    this.center(this.scw);
     this.label=new Label({'parent':this.scw,
                          'position':[0, 0],
                          'font':this.font,
@@ -1166,6 +1317,7 @@ TextInput.prototype._setText=function(text){
     this.label.setText(text);
     this.scw.autoSetScrollableArea();
     this.refresh();
+    this.despatchEvent({'type':EVT_CHANGE,'value':text});
 };
 
 TextInput.prototype.onKeyDown=function(event){
@@ -1348,6 +1500,7 @@ GUI.prototype.draw=function(force_redraw){
     this.frames.forEach(function(frame){
         if(frame.visible && (frame.draw() || painted)){
             if(this.locked_frame && (this.locked_frame.id==frame.id)){
+                this.refresh();
                 this.blur_bg();
             }
             this.surface.blit(frame.surface, frame.position);
@@ -1491,7 +1644,40 @@ GUI.prototype.despatchEvent=function(event){
     }
 };
 
+exports.layout={};
 
+/********************
+ *layout:vertical
+ *objects - a list of gui objects (with the same parent)
+ *y - starting y, default 0
+ *space- space between objects, default 0
+ *
+ *arranges objects vertically.
+ */
+exports.layout.vertical=function(objects, y, space){
+    y=y || 0;
+    space = space || 0;
+    objects.forEach(function(object){
+        object.move([object.position[0], y]);
+        y+=object.size[1]+space;
+    });
+    
+};
 
-
+/********************
+ *layout:horizontal
+ *objects - a list of gui objects (with the same parent)
+ *x - starting x, default 0
+ *space- space between objects, default 0
+ *
+ *arranges objects horizontally.
+ */
+exports.layout.horizontal=function(objects, x, space){
+    x=x || 0;
+    space = space || 0;
+    objects.forEach(function(object){
+        object.move([x, object.position[1]]);
+        x+=object.size[0]+space;
+    });
+};
 
