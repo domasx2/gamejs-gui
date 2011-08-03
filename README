@@ -1,5 +1,8 @@
 This is a canvas-native (not html & css) hierarchical event driven GUI toolkit for gamejs HTML 5 game framework.
 
+Live example at:
+http://www.banditracer.eu/gamejsgui
+
 Goals:
 Fast and easy developement of sophisticated GUI for HTML5 games
 Ready-made game oriented components (inventory, health bar, store)
