@@ -169,11 +169,12 @@ var View=exports.View=function(pars){
     this.id=gamejs_ui_next_id++;
     if(!pars.size) throw "View: size must be specified"
     this.size=pars.size;
-    if(!pars.position) throw "View: position must be specified"
-    this.position=pars.position;
+    if(!pars.position) pars.position=[0, 0];
+    this.position=[parseInt(pars.position[0]), parseInt(pars.position[1])];
     this.surface=pars.surface ? pars.surface : new gamejs.Surface(this.size);
+    if(pars.parent===undefined) throw "Element's parent not given."
     this.parent=pars.parent;
-    if(pars.visible==undefined){
+    if(pars.visible===undefined){
         this.visible=true;
     }else{
         this.visible=pars.visible;
@@ -577,6 +578,13 @@ Button.prototype.paint=function(){
     
 };
 
+Button.prototype.setText=function(text){
+    if(this.label){
+        this.label.setText(text);
+        this.center(this.label);
+    }
+};
+
 /************************************************
  *IMAGE
  * pars:
@@ -599,13 +607,6 @@ gamejs.utils.objects.extend(Image, View);
 
 Image.prototype.setImage=function(image){
     this.image=image;
-    if(this.size[0]!=this.image.getSize()[0] || this.size[1]!=this.image.getSize()[1]){
-        this.surface=new gamejs.Surface(this.size);
-        this.surface.blit(image, new gamejs.Rect([0, 0], this.size), new gamejs.Rect([0, 0], image.getSize()));
-    }
-    else{
-        this.surface=this.image;
-    }
     this.refresh();
 };
 
@@ -714,7 +715,7 @@ FrameHeader.prototype.paint=function(){
  ***************************************************************/
 var Frame=exports.Frame=function(pars){
     if(!pars.gui) throw 'Frame: gui parameter is required';
-   
+    pars.parent=null;
     Frame.superConstructor.apply(this, [pars]);
     this.type='frame';
     this.visible=false;
@@ -1485,6 +1486,7 @@ Text.prototype.paint=function(){
  */
 var GUI=exports.GUI=function(surface){
     GUI.superConstructor.apply(this, [{'position':[0, 0],
+                                      'parent':null,
                                       'size':surface.getSize(),
                                       'surface':surface}]);
     this.type='gui';
