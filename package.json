@@ -1,0 +1,8 @@
+{
+    "name": "gamejs-gui",
+    "version": "2011.08.15",
+    "description": "canvas-native GUI toolkit for GameJs",
+    "keywords": ["gamedev", "gui", "ui"],
+    "author": ["Domas Lapinskas <domasx2@gmail.com>"],
+    "main": "./lib/gamejs-gui"
+}

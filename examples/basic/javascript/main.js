@@ -1,5 +1,5 @@
 var gamejs = require('gamejs');
-var GUI=require('./gamejs-gui');
+var GUI=require('gamejs-gui');
 
 gamejs.preload(['./images/bandit_blue.png']);
 
@@ -8,38 +8,48 @@ var sometext=" Typography is often a deciding factor in the success of a design.
 
 gamejs.ready(function() {
 
+    //initialize display
     var display = gamejs.display.setMode([800, 600]);
     
+    
+    //create base GUI object
     var gui=new GUI.GUI(display)   
   
-    var frame1=new GUI.Frame({'gui':gui,
+    //create 1st frame
+    var frame1=new GUI.Frame({'parent':gui,
                              'position':[200, 60],
                              'size':[200, 300],
-                             'header':true,
-                             'constrain':true,
-                             'close_btn':true,
-                             'title':'Frame 1'});
+                             'constrain':true});
+    
+    //create header for 1st frame
+    new GUI.FrameHeader({'parent':frame1,
+                        'close_btn':true,
+                        'title':'First frame'});
 
     
+    //create scrollable view for 1st frame
     var scrollable_area=new GUI.ScrollableView({'position':[0, 20],
                                                  'size':[frame1.size[0]-20,
                                                          frame1.size[1]-20],
                                                  'parent':frame1});
     
+    //ad an image to this scrollable view
     new GUI.Image({'parent':scrollable_area,
                           'position':[10, 30],
                           'image':gamejs.image.load('./images/bandit_blue.png')});
     
-    
+    //and a label
     new GUI.Label({'parent':scrollable_area,
                   'position':[10, 160],
                   'text':'Enter something else:'});
     
+    //and a text input
     new GUI.TextInput({'parent':scrollable_area,
                       'position':[10, 190],
                       'size':[100, 20],
                       'text':'boo'});
     
+    //and some text
     new GUI.Text({'parent':scrollable_area,
                   'position':[2, 230],
                   'width':frame1.size[0]-20-2,
@@ -47,25 +57,42 @@ gamejs.ready(function() {
                   'justify':true});
                   
                   
-    
+    //create a scrollbar
     var scrollbar=new GUI.VerticalScrollbar({'parent':frame1,
                                             'size':[20, frame1.size[1]-20],
                                             'position':[frame1.size[0]-20, 20]});
     
+    //set it to scrollable view
     scrollable_area.setVerticalScrollbar(scrollbar);
+    //calc scrollable area of the view
     scrollable_area.autoSetScrollableArea();
     
-    var frame2=new GUI.Frame({'gui':gui,
+    
+    //create second frame
+    var frame2=new GUI.Frame({'parent':gui,
                              'position':[210, 85],
                              'size':[200, 200],
-                             'header':true,
-                             'constrain':true,
-                             'close_btn':true,
-                             'title':'Frame 2'});
+                             'constrain':true});
     
+    //create header for second frame
+    new GUI.FrameHeader({'parent':frame2,
+                        'close_btn':true,
+                        'title':'First frame'});
+    
+    //add a label to 2-nd frame
     new GUI.Label({'parent':frame2,
                   'position':[5, 50],
                   'text':'Its working!'});
+    
+    //add a button to 2nd frame
+    var btn3=new GUI.Button({'parent':frame2,
+                            'position':[10, 90],
+                            'size':[100, 30],
+                            'text':'Close all frames'});
+    
+    btn3.onClick(function(){
+        gui.frames.forEach(function(frame){frame.close();});  
+    }, gui);
     
     
     
@@ -87,19 +114,12 @@ gamejs.ready(function() {
                             'size':[100, 30],
                             'text':'Show frame 2'});
     
-    var btn3=new GUI.Button({'parent':frame2,
-                            'position':[10, 90],
-                            'size':[100, 30],
-                            'text':'Close all frames'});
     
-    btn3.onClick(function(){
-        gui.frames.forEach(function(frame){frame.close();});  
-    }, gui);
     btn2.onClick(function(){
         this.show();
     }, frame2);
     
-    var dialog=new GUI.Dialog({'gui':gui,
+    var dialog=new GUI.Dialog({'parent':gui,
                                'size':[400, 100]});
     
     var dialog_ok=new GUI.Button({'parent':dialog,
