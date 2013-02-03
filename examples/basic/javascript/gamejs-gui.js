@@ -18,6 +18,7 @@ var EVT_DRAG = exports.EVT_DRAG = 'drag';
 var EVT_MOVE = exports.EVT_MOVE = 'move';
 var EVT_RESIZE = exports.EVT_RESIZE = 'resize';
 var EVT_PAINT = exports.EVT_PAINT = 'paint';
+var EVT_AFTER_PAINT = exports.EVT_AFTER_PAINT = 'after_paint';
 var EVT_CHANGE = exports.EVT_CHANGE = 'change'; //input change for input elements
 var DEFAULT_FONT_DESCR='14px Verdana';
 var gamejs_ui_next_id=1;
@@ -311,6 +312,15 @@ View.prototype.getRect=function(){
 };
 
 /**
+ *right align element to this x coordinate
+ *@function
+ *@param {Number} x xcoordinate
+ */
+View.prototype.rightAlign=function(x){
+    this.move([x-this.getSize()[0], this.getPosition()[1]]);
+};
+
+/**
  *add child to this view
  *@param {View} child view to add as a child of this view
  */
@@ -348,6 +358,7 @@ View.prototype.draw=function(){
         this.children.forEach(function(child){
             if(child.visible) this.blitChild(child);
         }, this)
+        this.despatchEvent({'type':EVT_AFTER_PAINT, 'surface':this.surface});
         painted=true;
         this._refresh=false;
     }
@@ -521,6 +532,7 @@ View.prototype.despatchEvent=function(event){
         if(!this.isFocused()){
             this.despatchEvent({'type':EVT_FOCUS});
         }
+
         this.children.forEach(function(child){
             //click inside child: despatch
             if(child.getRect().collidePoint(event.pos)){
@@ -605,7 +617,7 @@ View.prototype.handleEvent=function(event){
         this.listeners[event.type].forEach(function(listener){
             if(listener.scope) listener.callback.apply(listener.scope, [event, this]);
             else listener.callback(event, this);
-        });
+        }, this);
     }
 };
 
@@ -646,7 +658,7 @@ gamejs.utils.objects.extend(Label, View);
  *@param {String} text new text
  */
 Label.prototype.setText=function(text){
-    this.text=text ? text : ' ';
+    this.text=String(text) ? String(text) : ' ';
     this.size=this.font.getTextSize(text);
     this.resize(this.size);
 };
@@ -1730,7 +1742,7 @@ Dialog.prototype.close=function(){
  *@param {String} text
  *@param {Bool} justify if true, text is justified. By default, it's left-aligned
  *@param {View} parent parent element
- *@param {Array} size  array containing width & height of the element, eg. [width, height]
+ *@param {Integer} width text width in px. height is calculated automatically
  *@param {Array} position position of the view relative to parent, eg. [x, y]. OPTIONAL, default [0, 0]
  *@param {gamejs.Surface} surface surface to render this view on, OPTIONAL
  *@param {Bool} visible is this view visible? OPTIONAL, DEFAULT true
@@ -2060,4 +2072,3 @@ var layout=exports.layout={
         });
     }
 };
-
